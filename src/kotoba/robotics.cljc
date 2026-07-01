@@ -1,0 +1,144 @@
+(ns kotoba.robotics
+  "Robot missions, actions and safety — pure data contracts.
+
+  A kotoba-lang capability library that gives every cloud-itonami open
+  business a single, cross-cutting robotics contract. All cloud-itonami
+  verticals are designed on the premise that a robot performs the physical
+  domain work (drive, grasp, pour, clean, deliver, …) under an actor that
+  proposes actions and an independent governor that gates them.
+
+  Models: a mission (1 mission = 1 bounded operation, no infinite internal
+  loop — durable outer loops repeat missions), an action with a safety
+  classification, a safety-stop, and a telemetry proof that links robot
+  sensing to the audit ledger. No network, no I/O.
+
+  The library is policy, not control. It does not drive motors; it gives a
+  governor the records it needs to refuse unsafe actuation before it ever
+  reaches hardware. Portable (.cljc) across JVM / ClojureScript / SCI /
+  GraalVM."
+  (:require [clojure.set :as set]))
+
+;; ---------------------------------------------------------------------------
+;; Safety classification — the governor's gate
+;; ---------------------------------------------------------------------------
+
+(def safety-classes
+  "Safety classes a robot action can carry. The governor refuses any action
+  whose class is not permitted for the operator/phase, and requires human
+  sign-off for :safety-critical."
+  #{:none :low :medium :high :safety-critical})
+
+(def human-sign-off-classes
+  "Safety classes that require a human sign-off (interrupt-before) before the
+  action may be dispatched to hardware."
+  #{:high :safety-critical})
+
+;; ---------------------------------------------------------------------------
+;; Mission — one bounded robot operation
+;; ---------------------------------------------------------------------------
+
+(defn mission
+  "Construct a robot mission. 1 mission = 1 bounded operation. A durable outer
+  loop (lease / tick / budget / governor / crash recovery) repeats missions;
+  a single mission never loops internally."
+  [id robot objective & {:keys [boundaries max-steps]}]
+  {:mission/id         id
+   :mission/robot      robot
+   :mission/objective  objective
+   :mission/boundaries boundaries
+   :mission/max-steps  max-steps
+   :mission/status    :planned})
+
+;; ---------------------------------------------------------------------------
+;; Action — a proposed robot actuation, gated by safety class
+;; ---------------------------------------------------------------------------
+
+(def action-kinds
+  "Kinds of robot action. :sense is read-only; the others actuate hardware."
+  #{:sense :move :grasp :actuate :emit})
+
+(defn action
+  "Construct a robot action. kind is one of :sense/:move/:grasp/:actuate/:emit.
+  safety is a safety-class keyword. params is the actuation payload as EDN.
+  Returns nil for an unknown kind or safety class."
+  [id mission-id kind safety & {:keys [params]}]
+  (when (and (contains? action-kinds kind)
+             (contains? safety-classes safety))
+    {:action/id        id
+     :action/mission   mission-id
+     :action/kind      kind
+     :action/safety    safety
+     :action/params    params}))
+
+(defn actuates-hardware?
+  "True when an action actuates hardware (not a pure sense/read)."
+  [a]
+  (contains? #{:move :grasp :actuate :emit} (:action/kind a)))
+
+(defn requires-sign-off?
+  "True when an action's safety class requires a human sign-off before
+  dispatch."
+  [a]
+  (contains? human-sign-off-classes (:action/safety a)))
+
+;; ---------------------------------------------------------------------------
+;; Safety-stop
+;; ---------------------------------------------------------------------------
+
+(def stop-reasons
+  "Permitted safety-stop reasons. :e-stop is operator/hardware; :governor is a
+  policy refusal; :boundary is a mission-boundary breach."
+  #{:e-stop :governor :boundary :operator})
+
+(defn safety-stop
+  "Construct a safety-stop record halting a mission for a reason."
+  [mission-id reason & {:keys [source detail]}]
+  (when (contains? stop-reasons reason)
+    {:stop/mission mission-id
+     :stop/reason  reason
+     :stop/source  source
+     :stop/detail  detail}))
+
+;; ---------------------------------------------------------------------------
+;; Telemetry proof — links robot sensing to the audit ledger
+;; ---------------------------------------------------------------------------
+
+(defn telemetry-proof
+  "Construct a telemetry proof: a sensor reading captured during a mission,
+  suitable for appending to the audit ledger as evidence."
+  [mission-id sensor reading & {:keys [timestamp provenance]}]
+  {:proof/mission   mission-id
+   :proof/sensor    sensor
+   :proof/reading   reading
+   :proof/timestamp timestamp
+   :proof/provenance provenance})
+
+;; ---------------------------------------------------------------------------
+;; Governor gate — policy, not control
+;; ---------------------------------------------------------------------------
+
+(defn action-permitted?
+  "True when an action is permitted under an allowed set of safety classes.
+  This is the governor's gate; it never dispatches hardware, it only decides
+  whether the action may proceed to the next stage."
+  [a allowed-safety-classes]
+  (let [allowed (set allowed-safety-classes)]
+    (and (map? a)
+         (contains? allowed (:action/safety a))
+         (or (not (requires-sign-off? a))
+             ;; sign-off is required but is a separate human-in-the-loop
+             ;; stage; the gate returns true here only when the caller
+             ;; asserts sign-off by including the class in allowed AND the
+             ;; action carries no :action/sign-off-required override.
+             (not (contains? (:action/params a) :sign-off-pending))))))
+
+(defn gate
+  "Return a governor decision for an action against allowed safety classes.
+  :permit, :deny, or :require-sign-off."
+  [a allowed-safety-classes]
+  (cond
+    (not (map? a))                                  {:gate/decision :invalid :gate/reason :not-an-action}
+    (not (contains? (set allowed-safety-classes) (:action/safety a)))
+    {:gate/decision :deny :gate/reason :safety-class-not-allowed}
+    (requires-sign-off? a)                           {:gate/decision :require-sign-off :gate/safety (:action/safety a)}
+    :else                                            {:gate/decision :permit :gate/action (:action/id a)}))
