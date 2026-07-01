@@ -99,3 +99,9 @@ hold and sign-off.
 ## License
 
 Apache License 2.0.
+
+## Test
+
+```bash
+clojure -M:test
+```
