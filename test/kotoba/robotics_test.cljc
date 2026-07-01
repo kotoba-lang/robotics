@@ -41,3 +41,20 @@
       (is (= :require-sign-off (:gate/decision (rob/gate a #{:safety-critical}))))))
   (testing "invalid input"
     (is (= :invalid (:gate/decision (rob/gate "x" #{}))))))
+
+(deftest action-edge-cases
+  (testing "unknown kind is rejected"
+    (is (nil? (rob/action "A1" "M1" :teleport :low))))
+  (testing "unknown safety class is rejected"
+    (is (nil? (rob/action "A1" "M1" :move :extreme))))
+  (testing "all hardware-actuating kinds are flagged"
+    (doseq [k [:move :grasp :actuate :emit]]
+      (is (rob/actuates-hardware? (rob/action "A" "M" k :low)))))
+  (testing "sense is not hardware"
+    (is (not (rob/actuates-hardware? (rob/action "A" "M" :sense :low))))))
+
+(deftest gate-edge-cases
+  (testing "empty allowed set denies everything"
+    (is (= :deny (:gate/decision (rob/gate (rob/action "A" "M" :move :low) #{})))))
+  (testing "non-map input is invalid"
+    (is (= :invalid (:gate/decision (rob/gate "x" #{}))))))
