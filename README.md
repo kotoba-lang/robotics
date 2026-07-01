@@ -43,6 +43,38 @@ The governor refuses any action whose safety class is not in the operator's
 allowed set, and routes `:high`/`:safety-critical` to a human sign-off
 (human-in-the-loop) before the action may be dispatched to hardware.
 
+## Operator console (UI/UX)
+
+A read-only HTML dashboard renders missions and the governor action gate (safety-class color badges) for an operator. Built on
+[`kotoba-lang/html`](https://github.com/kotoba-lang/html) (Hiccup→HTML) +
+[`kotoba-lang/css`](https://github.com/kotoba-lang/css) (EDN→CSS). Pure data
+→ markup; the console never exposes a write surface (no `<form>`/`<button>`)
+— writes stay behind the governor.
+
+```clojure
+(require '[kotoba.robotics.ui :as ui])
+
+(ui/dashboard
+  {:missions [(rob/mission "M1" "robot-1" "deliver parcel")]
+   :actions [(rob/action "A1" "M1" :move :low)
+             (rob/action "A2" "M1" :grasp :safety-critical)]
+   :allowed-safety #{:none :low :medium :safety-critical}})
+;; => "<html>...read-only · governor-gated...</html>"
+```
+
+## Export (CSV / JSON)
+
+Audit-grade CSV (RFC-4180 quoting) and JSON (quote/backslash/newline
+escaped) for missions and actions (with governor gate decision).
+
+```clojure
+(require '[kotoba.robotics.export :as ex])
+
+(ex/missions->csv missions)
+(ex/actions->csv actions #{:none :low :medium :safety-critical}) ; governor gate column
+(ex/missions->json missions)
+```
+
 ## Why
 
 A robot performing physical work in a community (last-mile delivery, water
