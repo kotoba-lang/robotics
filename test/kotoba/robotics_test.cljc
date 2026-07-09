@@ -58,3 +58,22 @@
     (is (= :deny (:gate/decision (rob/gate (rob/action "A" "M" :move :low) #{})))))
   (testing "non-map input is invalid"
     (is (= :invalid (:gate/decision (rob/gate "x" #{}))))))
+
+(deftest action-permitted-test
+  (testing "agrees with gate's :permit case"
+    (is (true? (rob/action-permitted? (rob/action "A1" "M1" :move :low) #{:none :low}))))
+  (testing "a safety-critical action is NOT permitted even when its class is
+            allowed -- sign-off is a separate human-in-the-loop stage, not
+            something this boolean gate can wave through. Regression: a prior
+            implementation checked an unrelated :sign-off-pending param
+            instead of delegating to gate/requires-sign-off?, and treated
+            every sign-off-required action as permitted by default"
+    (is (false? (rob/action-permitted? (rob/action "A1" "M1" :grasp :safety-critical)
+                                        #{:safety-critical}))))
+  (testing "a :high action is NOT permitted even when its class is allowed"
+    (is (false? (rob/action-permitted? (rob/action "A1" "M1" :actuate :high)
+                                        #{:high}))))
+  (testing "denies a safety class not in allowed set"
+    (is (false? (rob/action-permitted? (rob/action "A1" "M1" :move :high) #{:none :low}))))
+  (testing "non-map input is not permitted"
+    (is (false? (rob/action-permitted? "x" #{:low})))))

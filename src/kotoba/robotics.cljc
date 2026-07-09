@@ -117,21 +117,6 @@
 ;; Governor gate — policy, not control
 ;; ---------------------------------------------------------------------------
 
-(defn action-permitted?
-  "True when an action is permitted under an allowed set of safety classes.
-  This is the governor's gate; it never dispatches hardware, it only decides
-  whether the action may proceed to the next stage."
-  [a allowed-safety-classes]
-  (let [allowed (set allowed-safety-classes)]
-    (and (map? a)
-         (contains? allowed (:action/safety a))
-         (or (not (requires-sign-off? a))
-             ;; sign-off is required but is a separate human-in-the-loop
-             ;; stage; the gate returns true here only when the caller
-             ;; asserts sign-off by including the class in allowed AND the
-             ;; action carries no :action/sign-off-required override.
-             (not (contains? (:action/params a) :sign-off-pending))))))
-
 (defn gate
   "Return a governor decision for an action against allowed safety classes.
   :permit, :deny, or :require-sign-off."
@@ -142,3 +127,16 @@
     {:gate/decision :deny :gate/reason :safety-class-not-allowed}
     (requires-sign-off? a)                           {:gate/decision :require-sign-off :gate/safety (:action/safety a)}
     :else                                            {:gate/decision :permit :gate/action (:action/id a)}))
+
+(defn action-permitted?
+  "True only when `gate` would :permit the action outright -- an action whose
+  safety class requires human sign-off is NOT permitted here even if its
+  class is in `allowed-safety-classes`; sign-off is a separate human-in-the-
+  loop stage (see `gate`'s :require-sign-off), not something this boolean
+  gate can wave through. Delegates entirely to `gate` so the two can never
+  disagree on the same action (a prior standalone implementation checked an
+  unrelated :sign-off-pending param instead of consulting `gate`/
+  `requires-sign-off?` correctly, and treated every sign-off-required action
+  as permitted by default)."
+  [a allowed-safety-classes]
+  (= :permit (:gate/decision (gate a allowed-safety-classes))))
