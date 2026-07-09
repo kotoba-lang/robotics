@@ -1,5 +1,6 @@
 (ns kotoba.robotics.export-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
             [kotoba.robotics :as rob]
             [kotoba.robotics.export :as ex]))
 
@@ -29,3 +30,13 @@
       (is (re-find #"\"actuates_hardware\":true" j))
       (is (re-find #"\"requires_sign_off\":true" j))
       (is (re-find #"\"gate\":\"" j)))))
+
+(deftest json-export-escapes-every-c0-control-character
+  ;; RFC 8259 requires EVERY control character U+0000-U+001F to be
+  ;; escaped, not just \\ \" and \n -- an operator-supplied objective
+  ;; containing a raw \t or other control byte would otherwise be copied
+  ;; through raw, producing invalid JSON (verified against Python's
+  ;; strict json module).
+  (let [m [(rob/mission "M1" "robot-1" (str "objective with" (char 9) "tab and" (char 1) "control char"))]
+        j (ex/missions->json m)]
+    (is (str/includes? j "objective with\\ttab and\\u0001control char"))))
