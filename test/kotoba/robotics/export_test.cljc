@@ -31,6 +31,16 @@
       (is (re-find #"\"requires_sign_off\":true" j))
       (is (re-find #"\"gate\":\"" j)))))
 
+(deftest csv-export-quotes-a-bare-carriage-return
+  ;; RFC 4180 requires quoting a field containing CR, LF, or a comma --
+  ;; \r alone is also a line terminator every standard CSV reader
+  ;; recognizes, but the check here only ever covered \n. Verified
+  ;; against Python's csv module: an unquoted bare \r split the row into
+  ;; two corrupted rows on read-back.
+  (let [m [(rob/mission "M1" "robot-1" (str "deliver" (char 13) "parcel"))]
+        csv (ex/missions->csv m)]
+    (is (str/includes? csv "\"deliver\rparcel\""))))
+
 (deftest json-export-escapes-every-c0-control-character
   ;; RFC 8259 requires EVERY control character U+0000-U+001F to be
   ;; escaped, not just \\ \" and \n -- an operator-supplied objective
