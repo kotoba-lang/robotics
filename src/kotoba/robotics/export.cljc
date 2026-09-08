@@ -4,7 +4,7 @@
   Renders missions and actions to CSV and JSON for safety audit export and
   downstream reporting. Pure data → text: no network, no I/O. Exports are
   read-only evidence the audit ledger can append; they never dispatch."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [kotoba.robotics :as rob]))
 
 (defn- csv-cell [v]
