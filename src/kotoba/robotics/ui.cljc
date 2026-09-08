@@ -5,7 +5,7 @@
   action gate decisions, using kotoba-lang/html + css. Pure data → markup:
   no network, no DOM. The governor gates hardware dispatch; this view only
   observes missions, actions and sign-off state — it never dispatches."
-  (:require [html.core :as html]
+  (:require [kotoba.lang.text] [html.core :as html]
             [css.core :as css]
             [kotoba.robotics :as rob]))
 
@@ -69,5 +69,5 @@
        (when (seq actions)
          [:section.card [:h2 "Action gate"]
           [:p.muted (str "allowed safety classes: "
-                         (clojure.string/join ", " (map name (sort allowed-safety))))]
+                         (kotoba.lang.text/join ", " (map name (sort allowed-safety))))]
           (actions-table actions allowed-safety)])]]]))
