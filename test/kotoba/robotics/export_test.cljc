@@ -17,8 +17,12 @@
     (let [csv (ex/actions->csv actions #{:none :low :medium :safety-critical})]
       (is (re-find #"action_id,mission,kind,safety" csv))
       (is (re-find #"A1,M1,move,low" csv))
-      (is (re-find #"yes" csv))  ; actuates_hardware
-      (is (re-find #"require_sign_off|requires_sign_off" csv)))))
+      ;; NOT #"yes" and NOT #"requires_sign_off" over the whole document: the
+      ;; first is satisfied by any row of any export, and the second by the
+      ;; HEADER LINE, which is there whatever the rows say. Neither could tell
+      ;; a correct export from one whose every data row was wrong. Read the
+      ;; whole row instead; the per-column sweep is in safety_invariants_test.
+      (is (str/includes? csv "A2,M1,grasp,safety-critical,yes,yes,require-sign-off")))))
 
 (deftest json-export
   (testing "missions JSON"
