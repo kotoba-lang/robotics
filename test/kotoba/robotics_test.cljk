@@ -1,5 +1,5 @@
 (ns kotoba.robotics-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [kotoba.robotics :as rob]))
 
 (deftest mission-test

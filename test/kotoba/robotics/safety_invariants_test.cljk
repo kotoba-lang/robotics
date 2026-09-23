@@ -14,7 +14,7 @@
   one edit that makes it go red. A test whose failure has never been observed
   is not evidence that it holds anything up."
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [kotoba.robotics :as rob]
             [kotoba.robotics.export :as ex]))
 
