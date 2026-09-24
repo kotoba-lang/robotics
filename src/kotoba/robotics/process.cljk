@@ -87,8 +87,12 @@
 (defn out-of-tolerance?
   "Does result `r` of `case` violate its limit? A physical 'cannot' does."
   [{:keys [kind quantity limit]} r]
-  (let [q (get r quantity)]
+  (let [q (get r quantity)
+        ;; a time-to-reach quantity that never reached is +infinity, not
+        ;; 'unknown': it satisfies a :min ('takes at least') and fails a :max
+        never-reached? (and (nil? q) (#{:time-to-threshold-s :time-to-target-s} quantity))]
     (cond ((:cannot (kinds kind)) r) true
+          never-reached? (not (and (number? (:min limit)) (nil? (:max limit))))
           (not (number? q)) true
           (and (number? (:max limit)) (> q (:max limit))) true
           (and (number? (:min limit)) (< q (:min limit))) true
@@ -107,8 +111,10 @@
 
 (defn boundary
   "Bisect the sweep parameter between `:lo` and `:hi` for the point where the
-  limit verdict flips. nil when the bracket does not straddle a flip."
-  [{:keys [kind params sweep] :as c} {:keys [lo hi iterations] :or {iterations 30}}]
+  limit verdict flips. nil when the bracket does not straddle a flip. 20
+  halvings resolve the bracket to 1e-6 of its width; each is a full solver
+  run, so a slow kind (a quasi-static :material ramp) pays 20x."
+  [{:keys [kind params sweep] :as c} {:keys [lo hi iterations] :or {iterations 20}}]
   (let [bad? (fn [x] (out-of-tolerance? c ((:run (kinds kind)) (merge params {(:param sweep) x}))))
         blo (bad? lo) bhi (bad? hi)]
     (when (not= blo bhi)
