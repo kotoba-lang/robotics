@@ -8,12 +8,13 @@
   Unlike a one-tick rigid-body stop, the answer depends on the specimen: its
   length, section, Young's modulus, yield stress and hardening. The force-
   elongation curve is read from kudaki's history frames; elastic stiffness,
-  the load at which the response leaves the elastic line (yield), the final
+  the 0.2 %-offset yield load (Rp0.2), the final
   elongation and the plastic energy are derived from it.
 
   Held to (tests): elastic stiffness within 2 % of EA/L; a specimen loaded
   below sigma_y*A never yields; the detected yield load within 5 % of
-  sigma_y*A; kudaki's own energy balance residual small."
+  sigma_y*A (0.2 % offset, with hardening H adding H*0.002*A);
+  kudaki's own energy balance residual small."
   (:require [kudaki.integrate :as itg]))
 
 (def defaults
@@ -54,10 +55,13 @@
         early (filter (fn [[f u]] (and (not (zero? u)) (<= (* 0.05 fmax) (Math/abs (double f)) (* 0.25 fmax)))) curve)
         k (when (seq early)
             (/ (reduce + (map (fn [[f u]] (* f u)) early)) (reduce + (map (fn [[_ u]] (* u u)) early))))
-        ;; yield: the first load from which EVERY later frame stays more than 3 %
-        ;; beyond the elastic line -- a single ringing frame is not yield
-        beyond? (fn [[f u]] (and k (> (Math/abs (double u)) (* 1.03 (Math/abs (/ f k))))))
-        tails (map-indexed (fn [i fr] [fr (every? beyond? (drop i curve))]) curve)
+        ;; yield: the 0.2 % offset rule (ISO 6892-1 Rp0.2 / ASTM E8) -- the first
+        ;; load from which EVERY later frame carries more than 0.2 % permanent
+        ;; strain (elongation beyond the elastic line, over the gauge length).
+        ;; A single ringing frame is not yield. (Was: 3 % beyond the line,
+        ;; which read 0.9-1.3 % high and passed a 340.6 MPa bar as SD345.)
+        offset? (fn [[f u]] (and k (> (- (Math/abs (double u)) (Math/abs (/ f k))) (* 0.002 length-m))))
+        tails (map-indexed (fn [i fr] [fr (every? offset? (drop i curve))]) curve)
         yield-f (some (fn [[[f _] all-beyond?]] (when (and all-beyond? (> (Math/abs (double f)) (* 0.05 fmax)))
                                                   (Math/abs (double f))))
                       tails)
