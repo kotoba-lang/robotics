@@ -1,5 +1,10 @@
 {:paths ["src"]
  :deps {
+        ;; kudaki: the explicit J2 structural solver kotoba.robotics.process.material
+        ;; runs specimen tests on (zero third-party deps, pure .cljk).
+        io.github.kotoba-lang/kudaki {:git/url "https://github.com/kotoba-lang/kudaki.git"
+                                      :git/sha "48bed6f1bf8b22846ead206f96fcb8f26c4a9e69"}
+
         ;; kotoba.lang.coll replaced clojure.set here (2026-09-24). An explicit
         ;; floor: kotoba.lang.coll carries clojure.set's union/intersection/
         ;; difference/map-invert from 0ffd5f6, and tools.deps takes the NEWEST

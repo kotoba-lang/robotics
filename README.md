@@ -105,3 +105,24 @@ Apache License 2.0.
 ```bash
 kbb -M:test
 ```
+
+## Process physics (`kotoba.robotics.process`)
+
+What the robot physically does, declared as data and run by one probe. A
+vertical writes `physics.edn` (schema `itonami.physical-ai.spec.v1`: cases of
+`:kind`, `:params`, a `:sweep`, the `:quantity` a `:limit` judges, the limit's
+`:basis`, an optional `:boundary` to bisect) and names
+`:physics {:main-opts ["-m" "kotoba.robotics.process.probe"]}`; the probe
+prints one `itonami.physical-ai.probe.v1` map (exit 2 = could not measure).
+
+| `:kind` | solver | held to (tests) |
+|---|---|---|
+| `:transport` | force/accel/brake-limited longitudinal dynamics, semi-implicit Euler | trapezoid closed form; stall under an unmovable payload |
+| `:manipulator` | 2-link arm IK + quintic trajectory + rigid-body inverse dynamics | static moment of the weights; joint work = ΔPE (work–energy) |
+| `:material` | kudaki explicit J2 truss, quasi-static load ramp | stiffness = EA/L within 2 %; yield load within 5 % of σy·A |
+| `:thermal` | 1-D FTCS slab, convective or fixed faces | linear steady profile; adiabatic heat conservation |
+| `:tank-drain` | Torricelli, RK2 | closed-form drain time |
+| `:pipe-flow` | Darcy–Weisbach, Colebrook | 64/Re laminar; Haaland within 2 % |
+
+A run whose solver threw is not counted; a physical "cannot" (stall,
+unreachable, never drains) is a measurement and out of tolerance.
