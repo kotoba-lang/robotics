@@ -16,7 +16,7 @@
   governor the records it needs to refuse unsafe actuation before it ever
   reaches hardware. Portable (.cljc) across JVM / ClojureScript / SCI /
   GraalVM."
-  (:require [clojure.set :as set]))
+  (:require [kotoba.lang.coll :as set]))
 
 ;; ---------------------------------------------------------------------------
 ;; Safety classification — the governor's gate
