@@ -116,6 +116,35 @@
     (is (rel= (:friction-factor lam) (/ 64.0 (:reynolds lam)) 1e-12))
     (is (rel= (:friction-factor tur) (fluid/haaland (:reynolds tur) (/ 4.5e-5 0.05)) 0.02))))
 
+;; ── extensions: fire curve, cool-down, generation, slope, payload CoG ──
+
+(deftest iso-834-matches-the-standard-at-60-minutes
+  (is (rel= (thermal/iso-834 20.0 3600.0) 945.3 0.001))
+  (is (< (thermal/iso-834 20.0 600.0) (thermal/iso-834 20.0 1800.0))))
+
+(deftest a-thick-wall-back-face-peaks-after-the-fire-ends
+  (let [r (thermal/simulate {:thickness-m 0.10 :hot-curve :iso-834 :heating-s 3600.0
+                             :duration-s 14400.0 :h-back-w-m2k 5.0})]
+    (is (> (:time-of-peak-back-s r) 3600.0))
+    (is (> (:peak-back-c r) (:final-back-c r)))))
+
+(deftest adiabatic-generation-adds-exactly-q-l-t
+  (let [base {:h-front-w-m2k 0.0 :h-back-w-m2k 0.0 :q-gen-w-m3 5000.0 :thickness-m 0.05}
+        r0 (thermal/simulate (assoc base :duration-s 0.0))
+        r1 (thermal/simulate (assoc base :duration-s 2000.0))
+        t (* (:steps r1) (:dt-s r1))]
+    (is (rel= (- (:heat-content-j-m2 r1) (:heat-content-j-m2 r0)) (* 5000.0 0.05 t) 1e-9))))
+
+(deftest uphill-is-slower-and-too-steep-stalls
+  (let [t (fn [deg] (:cycle-time-s (transport/move {:slope-deg deg :drive-force-n 150.0 :payload-kg 40.0})))]
+    (is (< (t 0.0) (t 5.0)))
+    (is (:stalled? (transport/move {:slope-deg 20.0 :drive-force-n 150.0 :payload-kg 40.0})))))
+
+(deftest a-higher-stacked-heavier-payload-lowers-the-tip-over-margin
+  (let [m (fn [kg h] (:min-tipover-margin (transport/move {:payload-kg kg :payload-cog-height-m h})))]
+    (is (> (m 10.0 0.5) (m 40.0 0.5)))
+    (is (> (m 20.0 0.4) (m 20.0 1.2)))))
+
 ;; ── the spec runner ─────────────────────────────────────────────────────
 
 (def spec

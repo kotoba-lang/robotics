@@ -16,26 +16,38 @@
   closed form it must agree with when unconstrained by force is the
   trapezoid `t = d/v + v/(2a) + v/(2b)` (pinned in the tests).
 
-  Tip-over margin is the longitudinal static-stability margin of the loaded
-  robot under its own acceleration: `1 - |a| h / (g s)`, with `h` the
-  combined centre-of-gravity height and `s` the horizontal distance from the
-  CoG to the tipping edge. Below 0 the robot tips.")
+  `:slope-deg` (uphill positive) adds the grade force `m g sin(theta)` to the
+  resistance the drive must overcome (a slope too steep for the drive
+  STALLS). Tip-over margin is the longitudinal static-stability margin of
+  the loaded robot under its own acceleration: `1 - |a| h / (g s)`, with `s`
+  the horizontal distance from the CoG to the tipping edge and `h` the
+  combined CoG height -- `:cog-height-m` as given, or, when
+  `:payload-cog-height-m` is set, the mass-weighted height of the robot
+  (`:cog-height-m`) and its payload, so a heavier or higher-stacked load
+  lowers the margin. Below 0 the robot tips.")
 
 (def g 9.80665)
 
 (def defaults
   {:mass-kg 60.0 :payload-kg 20.0 :distance-m 20.0 :v-max-mps 1.2
    :a-max-mps2 0.8 :brake-decel-mps2 1.0 :drive-force-n 300.0 :crr 0.015
-   :cog-height-m 0.45 :support-half-length-m 0.30 :dt-s 0.01 :max-time-s 600.0})
+   :cog-height-m 0.45 :support-half-length-m 0.30 :dt-s 0.01 :max-time-s 600.0
+   :slope-deg 0.0 :payload-cog-height-m nil})
 
 (defn move
   "Run one leg. Returns scalar quantities plus a thinned `:trajectory`."
   [params]
   (let [{:keys [mass-kg payload-kg distance-m v-max-mps a-max-mps2 brake-decel-mps2
-                drive-force-n crr cog-height-m support-half-length-m dt-s max-time-s]}
+                drive-force-n crr cog-height-m support-half-length-m dt-s max-time-s
+                slope-deg payload-cog-height-m]}
         (merge defaults params)
         m (+ (double mass-kg) (double payload-kg))
-        roll (* crr m g)
+        theta (* slope-deg (/ Math/PI 180.0))
+        ;; rolling resistance on the normal force, plus the grade component
+        roll (+ (* crr m g (Math/cos theta)) (* m g (Math/sin theta)))
+        cog-height-m (if payload-cog-height-m
+                       (/ (+ (* mass-kg cog-height-m) (* payload-kg payload-cog-height-m)) m)
+                       cog-height-m)
         a-drive (/ (- drive-force-n roll) m)
         a-up (min a-max-mps2 a-drive)
         b (double brake-decel-mps2)
@@ -66,6 +78,7 @@
              :min-tipover-margin (- 1.0 (/ (* (max peak-a b) cog-height-m)
                                            (* g support-half-length-m)))
              :final-position-m x' :steps (inc i) :rolling-resistance-n roll
+             :combined-cog-height-m cog-height-m
              :drive-limited? (< a-drive a-max-mps2) :trajectory traj'}
 
             (>= i steps-max)
