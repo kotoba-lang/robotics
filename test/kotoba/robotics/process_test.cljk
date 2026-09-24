@@ -95,6 +95,11 @@
       (is (rel= (:elastic-stiffness-n-per-m r) (:theoretical-stiffness-n-per-m r) 0.02))
       (is (rel= (:yield-force-n r) (* (+ 250.0e6 (* 1.0e9 0.002)) 1.0e-4) 0.02)))))
 
+(deftest a-peak-twenty-times-the-yield-load-still-reads-yield
+  (let [r (material/tensile-test {:area-m2 8.78e-6 :yield-stress-pa 240e6 :max-force-n 40000.0})]
+    (is (number? (:yield-force-n r)))
+    (is (rel= (:yield-force-n r) (:nominal-yield-force-n r) 0.05))))
+
 (deftest a-bar-below-the-minimum-yield-does-not-pass-it
   (testing "sigma_y 2 % under 345 MPa must read under 345 MPa x A"
     (let [area 1.0e-4
