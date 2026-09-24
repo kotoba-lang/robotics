@@ -210,6 +210,12 @@
   (is (some #(re-find #":sweep :values must be numbers" %) (process/spec-problems (assoc-in spec [:cases 0 :sweep :values] []))))
   (is (= 0 (:count (process/probe (assoc spec :cases []))))))
 
+(deftest never-reaching-a-threshold-satisfies-a-min-and-fails-a-max
+  (let [c {:kind :thermal :quantity :time-to-threshold-s}
+        r {:time-to-threshold-s nil :reached-threshold? false}]
+    (is (false? (process/out-of-tolerance? (assoc c :limit {:min 600.0 :basis "x"}) r)))
+    (is (true? (process/out-of-tolerance? (assoc c :limit {:max 600.0 :basis "x"}) r)))))
+
 (deftest a-stall-is-a-measurement-and-out-of-tolerance
   (let [r (process/run-case (assoc-in (first (:cases spec)) [:params :drive-force-n] 20.0) 500.0)]
     (is (not (:error r)))
