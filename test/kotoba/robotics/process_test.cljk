@@ -158,6 +158,23 @@
     (is (> (m 10.0 0.5) (m 40.0 0.5)))
     (is (> (m 20.0 0.4) (m 20.0 1.2)))))
 
+;; ── slope tip-over, stopping distance, cooling threshold ──────────────
+
+(deftest a-grade-eats-the-tip-over-margin
+  (let [m (fn [deg] (:min-tipover-margin (transport/move {:slope-deg deg :drive-force-n 600.0})))]
+    (is (> (m 0.0) (m 8.0)))))
+
+(deftest stopping-distance-is-v-squared-over-2b
+  (let [r (transport/move {:v-max-mps 1.2 :brake-decel-mps2 1.0})]
+    (is (rel= (:stopping-distance-m r) (/ (* 1.2 1.2) 2.0) 1e-9))))
+
+(deftest a-cooling-part-reports-when-it-falls-to-the-threshold
+  (let [r (thermal/simulate {:t0-c 200.0 :t-hot-c 20.0 :h-front-w-m2k 50.0 :h-back-w-m2k 0.0
+                             :threshold-c 60.0 :threshold-direction :falling :duration-s 20000.0
+                             :thickness-m 0.02})]
+    (is (number? (:time-to-threshold-s r)))
+    (is (< (:final-back-c r) 60.0))))
+
 ;; ── the spec runner ─────────────────────────────────────────────────────
 
 (def spec
