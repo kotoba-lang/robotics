@@ -57,7 +57,7 @@
         steps (long (Math/ceil (/ duration-s dt)))
         cap (* density-kg-m3 specific-heat-j-kgk dx)   ; J/(m^2 K) per interior node
         k conductivity-w-mk
-        heat-end (or heating-s duration-s)
+        heat-end (or heating-s ##Inf)   ; unset: the hot side never switches off
         cool (double (or t-cool-c t-back-ambient-c))
         hot-at (fn [t] (cond (> t heat-end) cool
                              (= hot-curve :iso-834) (iso-834 t0-c t)

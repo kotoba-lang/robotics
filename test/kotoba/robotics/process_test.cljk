@@ -80,12 +80,25 @@
     (is (rel= (k {:length-m 0.2}) (/ (k {:length-m 0.1}) 2.0) 0.03))
     (is (> (k {:youngs-modulus-pa 400e9}) (k {})))))
 
+;; the 0.2 % offset rule: yield near (sigma_y + H * 0.002) * A = 25.2 kN.
+;; Measured 25.725 kN (+2.1 %): kudaki's J2 return map under this ramp
+;; hardens faster than linear H just past yield (offset 0.00012 at 25.2 kN,
+;; 0.0021 at 25.725 kN). The old 3 %-beyond-the-line rule is not what this
+;; pins -- it pins that yield is past sigma_y*A and within 3 % of Rp0.2.
+(deftest yield-is-the-0-2-percent-offset-load
+  (let [r (material/tensile-test {:max-force-n 35000.0})]
+    (is (> (:yield-force-n r) (:nominal-yield-force-n r)))
+    (is (rel= (:yield-force-n r) (* (+ 250.0e6 (* 1.0e9 0.002)) 1.0e-4) 0.03))))
+
 ;; ── thermal ─────────────────────────────────────────────────────────────
 
 (deftest fixed-faces-reach-a-linear-steady-profile
   (let [r (thermal/simulate {:front-fixed? true :back-fixed? true :t-hot-c 100.0 :t-back-ambient-c 0.0
                              :t0-c 0.0 :thickness-m 0.02 :duration-s 20000.0 :nodes 11})]
     (is (rel= (:mean-c r) 50.0 0.01))))
+
+(deftest the-hot-side-stays-on-when-heating-s-is-unset
+  (is (= 600.0 (:final-hot-side-c (thermal/simulate {:duration-s 100.0})))))
 
 (deftest adiabatic-slab-conserves-heat
   (let [r0 (thermal/simulate {:h-front-w-m2k 0.0 :h-back-w-m2k 0.0 :duration-s 0.0})
