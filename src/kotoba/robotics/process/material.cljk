@@ -60,7 +60,11 @@
         ;; is already plastic the fit reads a low k and yield silently high
         ;; (+33 % on a thin strand at a high :max-force-n, isic-6190)
         fit-hi (min (* 0.25 fmax) (* 0.5 yield-stress-pa area-m2))
-        early (filter (fn [[f u]] (and (not (zero? u)) (<= (* 0.05 fmax) (Math/abs (double f)))
+        ;; the window's floor follows its ceiling: a peak 19x the yield load
+        ;; put 5 % of peak above half the yield load, the window was empty and
+        ;; yield read nil (an M4 bolt at 40 kN)
+        fit-lo (* 0.2 fit-hi)
+        early (filter (fn [[f u]] (and (not (zero? u)) (<= fit-lo (Math/abs (double f)))
                                        (<= (Math/abs (double f)) fit-hi))) curve)
         k (when (seq early)
             (/ (reduce + (map (fn [[f u]] (* f u)) early)) (reduce + (map (fn [[_ u]] (* u u)) early))))
@@ -72,7 +76,7 @@
         plastic (fn [[f u]] (when k (- (Math/abs (double u)) (Math/abs (/ f k)))))
         target (* 0.002 length-m)
         offset? (fn [fr] (let [p (plastic fr)] (and p (> p target))))
-        idx (first (keep-indexed (fn [i fr] (when (and (> (Math/abs (double (first fr))) (* 0.05 fmax))
+        idx (first (keep-indexed (fn [i fr] (when (and (> (Math/abs (double (first fr))) fit-lo)
                                                         (every? offset? (drop i curve)))
                                                i))
                                  curve))
