@@ -90,8 +90,8 @@
     (is (rel= (:yield-force-n r) (* (+ 250.0e6 (* 1.0e9 0.002)) 1.0e-4) 0.01))))
 
 (deftest a-peak-far-past-yield-still-fits-the-elastic-line
-  (testing "max force 4x the yield load: 25 % of it is already plastic"
-    (let [r (material/tensile-test {:max-force-n 100000.0})]
+  (testing "max force 8x the yield load: 25 % of it is twice the yield load"
+    (let [r (material/tensile-test {:max-force-n 200000.0})]
       (is (rel= (:elastic-stiffness-n-per-m r) (:theoretical-stiffness-n-per-m r) 0.02))
       (is (rel= (:yield-force-n r) (* (+ 250.0e6 (* 1.0e9 0.002)) 1.0e-4) 0.02)))))
 
