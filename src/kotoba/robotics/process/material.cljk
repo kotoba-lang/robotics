@@ -38,7 +38,7 @@
   [params]
   (let [p (merge defaults params)
         {:keys [elements length-m area-m2 youngs-modulus-pa yield-stress-pa density-kg-m3
-                max-force-n ramp-transits frames]} p
+                max-force-n ramp-transits frames yield-stress-pa area-m2]} p
         n (long elements)
         c (Math/sqrt (/ youngs-modulus-pa density-kg-m3))
         a (/ length-m n)
@@ -56,7 +56,12 @@
         ;; load (inside elastic for any test that yields past 25 %); the explicit
         ;; solver is undamped, so single frames ring around the static answer
         fmax (Math/abs (double max-force-n))
-        early (filter (fn [[f u]] (and (not (zero? u)) (<= (* 0.05 fmax) (Math/abs (double f)) (* 0.25 fmax)))) curve)
+        ;; ... and never past half the nominal yield load: when 25 % of the peak
+        ;; is already plastic the fit reads a low k and yield silently high
+        ;; (+33 % on a thin strand at a high :max-force-n, isic-6190)
+        fit-hi (min (* 0.25 fmax) (* 0.5 yield-stress-pa area-m2))
+        early (filter (fn [[f u]] (and (not (zero? u)) (<= (* 0.05 fmax) (Math/abs (double f)))
+                                       (<= (Math/abs (double f)) fit-hi))) curve)
         k (when (seq early)
             (/ (reduce + (map (fn [[f u]] (* f u)) early)) (reduce + (map (fn [[_ u]] (* u u)) early))))
         ;; yield: the 0.2 % offset rule (ISO 6892-1 Rp0.2 / ASTM E8) -- the first

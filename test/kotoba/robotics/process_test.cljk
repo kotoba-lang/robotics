@@ -89,6 +89,12 @@
     (is (> (:yield-force-n r) (:nominal-yield-force-n r)))
     (is (rel= (:yield-force-n r) (* (+ 250.0e6 (* 1.0e9 0.002)) 1.0e-4) 0.01))))
 
+(deftest a-peak-far-past-yield-still-fits-the-elastic-line
+  (testing "max force 4x the yield load: 25 % of it is already plastic"
+    (let [r (material/tensile-test {:max-force-n 100000.0})]
+      (is (rel= (:elastic-stiffness-n-per-m r) (:theoretical-stiffness-n-per-m r) 0.02))
+      (is (rel= (:yield-force-n r) (* (+ 250.0e6 (* 1.0e9 0.002)) 1.0e-4) 0.02)))))
+
 (deftest a-bar-below-the-minimum-yield-does-not-pass-it
   (testing "sigma_y 2 % under 345 MPa must read under 345 MPa x A"
     (let [area 1.0e-4
